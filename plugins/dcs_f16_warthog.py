@@ -2,11 +2,13 @@ import gremlin      # 'Coz it's a Joystick Gremlin module!
 import time         # Used for delays between actions in some functions
 import threading    # Threading allows the longer functions to be non-blocking
 import logging      # Used for logging events and debugging
+from gremlin.user_plugin import *
 
 """
 Constants
 """
-MODES = ["Default"]
+mode_global = ModeVariable("Global", "gl")
+mode_alt = ModeVariable("Alternative", "alt")
 
 # Helper for actual throttle button
 THROTTLE_BUTTONS = {
@@ -14,7 +16,12 @@ THROTTLE_BUTTONS = {
     "AP_PATH": 27,
     "AP_ALT": 28,
     "FLAPS_UP": 22,
-    "FLAPS_DN": 23
+    "FLAPS_DN": 23,
+    "ENG_IGN_R": 32
+}
+
+JOYSTICK_BUTTONS = {
+    "PADDLE": 4
 }
 
 # Mapped vJoy buttons
@@ -31,13 +38,14 @@ VJOY_BUTTONS = {
 }
 
 # This information can be retrieved in Joystick Gremlin under Tools>Device Information
-JOYSTICK_GUID = "{9F3CAC80-1B1C-11EB-8002-444553540000}"
+JOYSTICK_GUID = "{2AFA7F00-1897-11EB-8002-444553540000}"
 THROTTLE_GUID = "{6EB24530-1896-11EB-8001-444553540000}"
 
 """
 Sync stuff at startup
 """
 def sync():
+    gremlin.util.log("Initial sync")
     joy_proxy = gremlin.input_devices.JoystickProxy()    
     vjoy_proxy = gremlin.joystick_handling.VJoyProxy()
 
@@ -60,12 +68,17 @@ sync()
 joy = gremlin.input_devices.JoystickDecorator( \
                 "Joystick - HOTAS Warthog ", \
                 JOYSTICK_GUID, \
-                 MODES[0] )
+                 mode_global.value)
 
 thrt = gremlin.input_devices.JoystickDecorator( \
                 "Throttle - HOTAS Warthog", \
                 THROTTLE_GUID, \
-                MODES[0] )
+                mode_global.value)
+
+thrt_alt = gremlin.input_devices.JoystickDecorator( \
+                "Throttle - HOTAS Warthog", \
+                THROTTLE_GUID, \
+                "Alternative" )
 
 # Autopilot roll 3-way emulation {{{
 AP_ROLL_CYCLE_STATE = 0
@@ -79,6 +92,7 @@ From sync, this starts in the middle position as ATT_HOLD
 @thrt.button(THROTTLE_BUTTONS["AP_ENGAGE_DISENGAGE"])
 def apRollCycle(event, vjoy):
     global AP_ROLL_CYCLE_STATE
+    gremlin.util.log("im here")
     if (not event.is_pressed):
         return
         
@@ -126,6 +140,20 @@ def flapsUp(event, vjoy, joy):
 def flapsUp(event, vjoy, joy):
     toggleSwitchMiddle(event, vjoy, joy, THROTTLE_BUTTONS["FLAPS_UP"], THROTTLE_BUTTONS["FLAPS_DN"], VJOY_BUTTONS["FLAPS_MVR"])
 # }}}
+
+@joy.button(JOYSTICK_BUTTONS["PADDLE"])
+def temporary_mode_switch(event):
+    if event.is_pressed:
+        gremlin.util.log("[Mode] Switch to alt")
+        gremlin.control_action.switch_mode("Alternative")
+    else:
+        gremlin.util.log("[Mode] Switch back to Global")
+        gremlin.control_action.switch_to_previous_mode()
+
+@thrt_alt.button(THROTTLE_BUTTONS["ENG_IGN_R"])
+def ddd(event, vjoy):
+    gremlin.util.log("in there")
+
 
 '''
 gremlin.util.log("in there")
